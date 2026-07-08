@@ -29,6 +29,67 @@ That's it. To undo it, run `install.exe /uninstall` (or just delete the one
 registry value — see below). It puts two small files in
 `C:\Program Files\Darkpad` and nothing else.
 
+## Custom colors
+
+Darkpad isn't locked to my grey. The first time you open Notepad after
+installing, it drops a little settings file here:
+
+```
+%APPDATA%\Darkpad\darkpad.ini
+```
+
+Quick way to get there: press **Win + R**, paste `%APPDATA%\Darkpad`, hit Enter.
+
+Open `darkpad.ini` (in Notepad, obviously — it'll be dark) and you'll see:
+
+```
+[colors]
+background=1e1e1e
+text=dcdcdc
+bar=2b2b2b
+```
+
+Three values, each a hex color like you'd use on a web page (`RRGGBB`):
+
+- **background** — the area behind your text.
+- **text** — the text itself.
+- **bar** — the menu bar and the status bar.
+
+Change one, save, and **restart Notepad**. That's the whole loop.
+
+A few to steal:
+
+```
+; Ink blue
+background=10131a
+text=cdd6f4
+bar=1b2030
+```
+
+```
+; Warm sepia
+background=1c1813
+text=e8d8b8
+bar=2a2018
+```
+
+```
+; Max contrast
+background=000000
+text=ffffff
+bar=1a1a1a
+```
+
+Delete a line to fall back to that item's default. Delete the whole file and
+Darkpad recreates it with the defaults the next time Notepad opens. There's a
+copy of this file at [`docs/darkpad.ini`](docs/darkpad.ini) if you want a
+starting point.
+
+**The one thing you can't recolor is the title bar.** On Windows 10 the title
+bar belongs to Windows — it only does "dark" or "light," not a custom color — so
+Darkpad keeps it dark and leaves it out of the file. Background, text and bar are
+yours.
+
 ## The honest limitation: no syntax highlighting
 
 People ask. The answer is no, and it's not laziness — it's the wall Notepad is

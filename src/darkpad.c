@@ -19,11 +19,14 @@
 #include <commctrl.h>
 
 // ---- theme colors ---------------------------------------------------------
-#define DARK_BG      RGB(30, 30, 30)     // editor bg (matches existing)
-#define DARK_TXT     RGB(220, 220, 220)  // all light text
-#define BAR_BG       RGB(43, 43, 43)     // menu bar / status bar bg
-#define BAR_HOT      RGB(60, 60, 60)     // hot/selected menu item
-#define BAR_EDGE     RGB(43, 43, 43)     // 1px underline sliver
+// These are variables, not constants: load_config() overwrites them from
+// %APPDATA%\Darkpad\darkpad.ini at startup. The defaults below are the
+// built-in dark theme, used when there is no config file (or a value is blank).
+static COLORREF DARK_BG  = RGB(30, 30, 30);    // editor background
+static COLORREF DARK_TXT = RGB(220, 220, 220); // all light text
+static COLORREF BAR_BG   = RGB(43, 43, 43);    // menu bar / status bar bg
+static COLORREF BAR_HOT  = RGB(60, 60, 60);    // hot/selected menu item (derived)
+static COLORREF BAR_EDGE = RGB(43, 43, 43);    // 1px underline sliver (derived)
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
@@ -99,6 +102,83 @@ static void enable_dark_app_mode(void) {
     if (setMode) setMode(PAM_ForceDark);
     if (flush)   flush();
     // keep uxtheme loaded (do not FreeLibrary) for the process lifetime
+}
+
+// ---- custom colors from %APPDATA%\Darkpad\darkpad.ini ---------------------
+// Lighten a color by a fixed amount per channel (used for the hot menu item).
+static COLORREF lighten(COLORREF c, int d) {
+    int r = GetRValue(c) + d, g = GetGValue(c) + d, b = GetBValue(c) + d;
+    if (r > 255) r = 255;
+    if (g > 255) g = 255;
+    if (b > 255) b = 255;
+    return RGB(r, g, b);
+}
+
+// Parse "RRGGBB" (an optional leading # is allowed) into a COLORREF. On any
+// malformed value, return the given fallback unchanged.
+static COLORREF parse_hex(const WCHAR *s, COLORREF fallback) {
+    while (*s == L'#' || *s == L' ' || *s == L'\t') s++;
+    unsigned v = 0;
+    int n = 0;
+    for (; *s && n < 6; s++) {
+        WCHAR c = *s;
+        int d;
+        if      (c >= L'0' && c <= L'9') d = c - L'0';
+        else if (c >= L'a' && c <= L'f') d = c - L'a' + 10;
+        else if (c >= L'A' && c <= L'F') d = c - L'A' + 10;
+        else break;
+        v = (v << 4) | (unsigned)d;
+        n++;
+    }
+    if (n != 6) return fallback;
+    return RGB((v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff);
+}
+
+// Load the per-user color config. If the file is missing, write a commented
+// template so the user can find and edit it. Missing or invalid values keep
+// the built-in defaults. The menu-hot and edge tones are derived from "bar".
+static void load_config(void) {
+    WCHAR appdata[MAX_PATH];
+    if (!GetEnvironmentVariableW(L"APPDATA", appdata, MAX_PATH))
+        return;  // no %APPDATA%: keep defaults
+
+    WCHAR dir[MAX_PATH], ini[MAX_PATH];
+    wsprintfW(dir, L"%s\\Darkpad", appdata);
+    wsprintfW(ini, L"%s\\darkpad.ini", dir);
+
+    if (GetFileAttributesW(ini) == INVALID_FILE_ATTRIBUTES) {
+        // First run: drop a commented template next to the user's app data.
+        CreateDirectoryW(dir, NULL);
+        static const char *tmpl =
+            ";\r\n"
+            "; Darkpad colors. Values are hex RRGGBB, like web colors.\r\n"
+            "; Change one, save, then restart Notepad to see it.\r\n"
+            ";\r\n"
+            "[colors]\r\n"
+            "background=1e1e1e\r\n"
+            "text=dcdcdc\r\n"
+            "bar=2b2b2b\r\n";
+        HANDLE h = CreateFileW(ini, GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                               FILE_ATTRIBUTE_NORMAL, NULL);
+        if (h != INVALID_HANDLE_VALUE) {
+            DWORD wrote = 0;
+            WriteFile(h, tmpl, (DWORD)lstrlenA(tmpl), &wrote, NULL);
+            CloseHandle(h);
+        }
+        return;  // the template equals the built-in defaults
+    }
+
+    WCHAR buf[64];
+    GetPrivateProfileStringW(L"colors", L"background", L"", buf, 64, ini);
+    if (buf[0]) DARK_BG = parse_hex(buf, DARK_BG);
+    GetPrivateProfileStringW(L"colors", L"text", L"", buf, 64, ini);
+    if (buf[0]) DARK_TXT = parse_hex(buf, DARK_TXT);
+    GetPrivateProfileStringW(L"colors", L"bar", L"", buf, 64, ini);
+    if (buf[0]) BAR_BG = parse_hex(buf, BAR_BG);
+
+    // Derived tones so the user only ever sets three colors.
+    BAR_HOT  = lighten(BAR_BG, 17);
+    BAR_EDGE = BAR_BG;
 }
 
 // ---- status bar: dark via a direct subclass of msctls_statusbar32 ----------
@@ -331,6 +411,7 @@ static LRESULT CALLBACK dark_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 // Worker: wait for our Notepad window, then hook it.
 static DWORD WINAPI worker(LPVOID unused) {
     (void)unused;
+    load_config();           // custom colors from %APPDATA%\Darkpad\darkpad.ini
     enable_dark_app_mode();  // before first menu is themed
 
     DWORD myPid = GetCurrentProcessId();

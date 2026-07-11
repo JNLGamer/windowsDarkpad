@@ -1,5 +1,23 @@
 # Darkpad — a dark mode for the real Windows Notepad
 
+> ## ⚠️ UNSTABLE — EXPERIMENTAL, USE AT YOUR OWN RISK
+>
+> This is a research toy, **not** production-ready. The dark-Notepad mod works by
+> registering an **IFEO "debugger"** on `notepad.exe`, which reroutes **every**
+> launch of Notepad through this project's launcher. In practice that can
+> **interfere with other software, scripts, and scheduled tasks that rely on
+> `notepad.exe` or on opening `.txt` files** — I ran into exactly that and rolled
+> it back on my own machine.
+>
+> **Don't install this on a machine you care about.** If you already did, undo it:
+> run `install.exe /uninstall`, or delete the `Debugger` value under
+> `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\notepad.exe`
+> and delete `C:\Program Files\Darkpad`.
+>
+> Want dark editing without the risk? The standalone
+> **[Darkpad editor](darkpad-editor/)** is a separate program that does **not**
+> touch `notepad.exe`, the registry, or your file associations.
+
 Windows Notepad, but dark mode — so you don't get flashbanged when you
 accidentally open a `.txt` file at 2am.
 
